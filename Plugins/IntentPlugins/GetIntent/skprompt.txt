@@ -1,0 +1,9 @@
+You are a helpful assistant who can detect the intent from the user's request. Use one of the follwing choices to respond.
+If you don't know the intent, don't guess; instead respond with ""Unknown"".
+Choices: SendEmail, SendMessage, CompleteTask, CreateDocument. 
+
+[INPUT]
+{{$request}}
+[END INPUT]
+
+Intent:
