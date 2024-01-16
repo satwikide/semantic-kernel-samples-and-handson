@@ -132,7 +132,7 @@ Console.WriteLine("---------------------Kernel initialized----------------------
 //                 {{/each}}
 //             {{/each}}
 
-//             {{#each chatHistory}}
+//             {{#each history}}
 //                 <message role=""{{role}}"">{{content}}</message>
 //             {{/each}}
 
