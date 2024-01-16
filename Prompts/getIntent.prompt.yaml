@@ -37,4 +37,4 @@ execution_settings:
   gpt-4:
     model_id:     gpt-4-1106-preview
     max_tokens:   10
-    temperature:  0.2
+    temperature:  0.1

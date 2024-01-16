@@ -20,7 +20,8 @@ Console.WriteLine("---------------------Kernel initialized----------------------
 // Console.WriteLine("-----------------------------------------------------------------------------------");
 // Console.WriteLine("Example 1. Invoke the kernel with a templated prompt and display the result");
 // KernelArguments arguments = new() { { "request", "Send an approval email to the marketing team" } };
-// Console.WriteLine(await kernel.InvokePromptAsync("What is the intent of this request {{$request}}?", arguments));
+// Console.WriteLine($"Output: {await kernel.InvokePromptAsync("What is the intent of this request {{$request}}? You can choose between SendEmail, SendMessage, CompleteTask, CreateDocument."
+//                                                 , arguments)}");
 // Console.WriteLine();
 
 // Console.WriteLine("-----------------------------------------------------------------------------------");
@@ -47,13 +48,14 @@ Console.WriteLine("---------------------Kernel initialized----------------------
 // ChatHistory chatHistory = new() 
 // {   
 //     new ChatMessageContent(AuthorRole.System, @"You are a helpful assistant who can detect the intent from the user's request. 
-//                                                 Use one of the follwing choices to respond and also generate sample email or message.
+//                                                 Use one of the follwing choices to respond. Also generate sample email or message if applicable.
 //                                                 If you don't know the intent, don't guess; instead respond with 'Unknown'.
 //                                                 Choices: SendEmail, SendMessage "),
 //     new ChatMessageContent(AuthorRole.User, "Send an approval email to the marketing team with notes on the new product launch 'Xbox'"),
-//     new ChatMessageContent(AuthorRole.System, "Intent:"),
-//     new ChatMessageContent(AuthorRole.System, "Sample:")
+//     new ChatMessageContent(AuthorRole.System, "Intent: "),
+//     new ChatMessageContent(AuthorRole.System, "Sample: "),
 // };
+// Console.WriteLine("\n-----------------------Start of output----------------------- \n");
 // await foreach (var update in chatCompletionService.GetStreamingChatMessageContentsAsync(chatHistory, executionSettings))
 // {
 //     Console.Write(update);
@@ -67,27 +69,31 @@ Console.WriteLine("---------------------Kernel initialized----------------------
 //     new()
 //     {
 //         Template = @"
-//             <message role=""system"">You are a helpful assistant who can detect the intent from the user's request. Use one of the follwing choices to respond.
+//             <message role=""system"">You are a helpful assistant who can detect the intent from the user's request. 
+//             Use one of the follwing choices to respond. Also generate sample email or message if applicable.
 //             If you don't know the intent, don't guess; instead respond with ""Unknown"".
 //             Choices: SendEmail, SendMessage, CompleteTask, CreateDocument. 
 //             </message>
 //             <message role=""user"">{{request}}</message>
 //             <message role=""system"">Intent:</message>
+//             <message role=""system"">Sample:</message>
 //             ",
 //         TemplateFormat = "handlebars"
 //     },
 //     new HandlebarsPromptTemplateFactory()
 // );
-// KernelArguments chatIntentArgs = new() { { "request", "Can you send a very quick approval to the marketing team?" } };
+// KernelArguments chatIntentArgs = new() { { "request", "Send an approval email to the marketing team with notes on the new product launch 'Xbox'" } };
+// Console.WriteLine("\n-----------------------Start of output----------------------- \n");
 // Console.WriteLine(await kernel.InvokeAsync(getIntent, chatIntentArgs));
+
 
 // Console.WriteLine("-----------------------------------------------------------------------------------");
 // Console.WriteLine("Example 5. Loops in Handlebars templates");
 // // Create hook
-// kernel.PromptRendered += (sender, args) =>
-// {
-//     Console.WriteLine($"\nPrompt sent to LLM:\n {args.RenderedPrompt}\n");
-// };
+// // kernel.PromptRendered += (sender, args) =>
+// // {
+// //     Console.WriteLine($"\nPrompt sent to LLM:\n {args.RenderedPrompt}\n");
+// // };
 // // Create choices
 // List<string> choices = ["SendEmail", "SendMessage", "CompleteTask", "CreateDocument"];
 
@@ -111,38 +117,60 @@ Console.WriteLine("---------------------Kernel initialized----------------------
 // history.AddUserMessage("Generate a marketing idea to sell new product called 'Xbox'");
 // history.AddSystemMessage("Intent: Unknown");
 
+// // Create Function with handlebars template
 // var getIntent = kernel.CreateFunctionFromPrompt(
-//     new()
-//     {
-//         Template = @"
-//         <message role=""system"">Instructions: What is the intent of this request?
-//         Do not explain the reasoning, just reply back with the intent. If you are unsure, reply with ""Unknown"".
-//         Choices: {{choices}}.</message>
+//         new()
+//         {
+//             Template = @"
+//             <message role=""system"">Instructions: What is the intent of this request?
+//             Do not explain the reasoning, just reply back with the intent. If you are unsure, reply with ""Unknown"".
+//             Choices: {{choices}}.</message>
 
-//         {{#each fewShotExamples}}
-//             {{#each this}}
+//             {{#each fewShotExamples}}
+//                 {{#each this}}
+//                     <message role=""{{role}}"">{{content}}</message>
+//                 {{/each}}
+//             {{/each}}
+
+//             {{#each chatHistory}}
 //                 <message role=""{{role}}"">{{content}}</message>
 //             {{/each}}
-//         {{/each}}
 
-//         {{#each chatHistory}}
-//             <message role=""{{role}}"">{{content}}</message>
-//         {{/each}}
+//             <message role=""user"">{{request}}</message>
+//             <message role=""system"">Intent:</message>",
+//             TemplateFormat = "handlebars"
+//         },
+//         new HandlebarsPromptTemplateFactory()
+//     );
+// // Start the chat loop
+// while (true)
+// {
+//     // Get user input
+//     Console.Write("\nUser > ");
+//     var request = Console.ReadLine();
 
-//         <message role=""user"">{{request}}</message>
-//         <message role=""system"">Intent:</message>",
-//         TemplateFormat = "handlebars"
-//     },
-//     new HandlebarsPromptTemplateFactory()
-// );
-// Console.WriteLine($"\nOutput: {await kernel.InvokeAsync(getIntent, 
-//                 new KernelArguments() { 
-//                         { "request", "Follow up with John for the quarter report" },
-//                         { "history", history },
-//                         { "choices", string.Join(", ", choices) },
-//                         { "fewShotExamples", fewShotExamples }
-//                     })}\n");
+//     var chatResult = kernel.InvokeStreamingAsync<StreamingChatMessageContent>(
+//                     getIntent, 
+//                     new KernelArguments() { 
+//                             { "request", request },
+//                             { "history", history },
+//                             { "choices", string.Join(", ", choices) },
+//                             { "fewShotExamples", fewShotExamples }
+//                         });
+    
+//     // Stream the response
+//     string message = "";
+//     await foreach (var chunk in chatResult)
+//     {
+//         if (chunk.Role.HasValue) Console.Write(chunk.Role + " > ");
+//         message += chunk;
+//         Console.Write(chunk);
+//     }
+//     Console.WriteLine();
 
+//     history.AddUserMessage(request);
+//     history.AddAssistantMessage(message);
+// }
 
 // Console.WriteLine("-----------------------------------------------------------------------------------");
 // Console.WriteLine("Example 6. Using YAML prompt template");
@@ -167,7 +195,7 @@ Console.WriteLine("---------------------Kernel initialized----------------------
 //     Intent: CreateDocument
 // """;
 // // Take input
-// Console.Write("Enter text > ");
+// Console.Write("\nUser > ");
 // var request = Console.ReadLine();
 // // Invoke prompt
 // var intent = await kernel.InvokeAsync(
